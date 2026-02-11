@@ -1,0 +1,122 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  picture       String?
+  googleId      String?   @unique
+  role          UserRole  @default(CLIENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  workoutPlans  WorkoutPlan[]
+  availabilities Availability[]
+  bookings      Booking[]
+  slotsCreated  Slot[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  TRAINER
+  CLIENT
+}
+
+model WorkoutPlan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  duration    Int      // duration in days
+  createdBy   String
+  user        User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  exercises   Exercise[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("workout_plans")
+}
+
+model Exercise {
+  id            String      @id @default(cuid())
+  name          String
+  sets          Int
+  reps          Int
+  notes         String?
+  order         Int         @default(0)
+  workoutPlanId String
+  workoutPlan   WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("exercises")
+}
+
+model Availability {
+  id          String   @id @default(cuid())
+  date        DateTime
+  startTime   String   // Format: "HH:mm"
+  endTime     String   // Format: "HH:mm"
+  isRecurring Boolean  @default(false)
+  dayOfWeek   Int?     // 0-6 for Sunday-Saturday (only if recurring)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slots       Slot[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("availabilities")
+}
+
+model Slot {
+  id             String       @id @default(cuid())
+  startTime      DateTime
+  endTime        DateTime
+  status         SlotStatus   @default(OPEN)
+  availabilityId String
+  availability   Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  trainerId      String
+  trainer        User         @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  booking        Booking?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("slots")
+}
+
+enum SlotStatus {
+  OPEN
+  BOOKED
+  CANCELLED
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  slotId      String        @unique
+  slot        Slot          @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      User          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status      BookingStatus @default(CONFIRMED)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
